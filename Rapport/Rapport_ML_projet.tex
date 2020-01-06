@@ -1,0 +1,450 @@
+\documentclass[a4paper]{article}
+
+%Language and font
+\usepackage[french]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+
+%Configuration of pages and margin
+\usepackage[a4paper,top=3cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+\usepackage{float}
+
+%Packages
+\usepackage{amsmath, amsthm, amssymb, color, empheq, enumerate, enumitem, fancyvrb, fancyhdr, graphics, graphicx, hyperref, indentfirst, listings, subcaption, setspace, mathtools, siunitx, multirow, xcolor}
+\usepackage[]{algorithm2e}
+\usepackage{bm}
+\usepackage[nottoc]{tocbibind}
+\usepackage[numbered,framed]{matlab-prettifier}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhead[L]{\textit{Challenge de classification de phases du sommeil}}
+\fancyhead[R]{\textit{Henrique Miyamoto}}
+
+% Definitions for mathematics
+\newcommand{\transpose}{\top}
+\newcommand{\llbracket}{[\![}
+\newcommand{\rrbracket}{]\!]}
+\newcommand{\sinc}{\mathrm{sinc}}
+
+%Definition of path for figures
+\graphicspath{{./Figures/}}
+
+%Definitions for R codes
+\definecolor{darkgreen}{rgb}{0.13, 0.55, 0.13}
+
+\lstset{
+	language=R,                     % the language of the code
+	basicstyle=\footnotesize,       % the size of the fonts that are used for the code
+	stepnumber=1,                   % the step between two line-numbers. If it's 1, each line
+	% will be numbered
+	numbersep=5pt,                  % how far the line-numbers are from the code
+	backgroundcolor=\color{white},  % choose the background color. You must add \usepackage{color}
+	showspaces=false,               % show spaces adding particular underscores
+	showstringspaces=false,         % underline spaces within strings
+	showtabs=false,                 % show tabs within strings adding particular underscores
+	frame=single,                   % adds a frame around the code
+	rulecolor=\color{black},        % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. commens (green here))
+	tabsize=2,                      % sets default tabsize to 2 spaces
+	captionpos=b,                   % sets the caption-position to bottom
+	breaklines=true,                % sets automatic line breaking
+	breakatwhitespace=false,        % sets if automatic breaks should only happen at whitespace
+	title=\lstname,                 % show the filename of files included with \lstinputlisting;
+	% also try caption instead of title
+	keywordstyle=\color{blue},      % keyword style
+	commentstyle=\color{darkgray},   % comment style
+	stringstyle=\color{darkgreen},      % string literal style
+	escapeinside={\%*}{*)},         % if you want to add a comment within your code
+	morekeywords={*,...}            % if you want to add more keywords to the set
+}
+
+%Spacing
+\onehalfspacing
+
+% Numbering
+\numberwithin{equation}{section}
+\numberwithin{figure}{section}
+\numberwithin{table}{section}
+
+\begin{document}
+	
+\RestyleAlgo{boxruled}
+
+%Cover
+\begin{titlepage}
+	\centering
+	\begin{figure}[h!]
+	    \centering
+	    \includegraphics[width=4cm]{cs.png}
+	\end{figure}
+	\vspace{4.0cm}
+	{\scshape\Large Machine Learning et Classification \par}
+	\vspace{0.5cm}
+	{\bfseries\Huge Challenge de classification de phases du sommeil\par}
+	\vspace{1.0cm}
+	{\LARGE Option Mathématiques Appliquées\par}
+	{\Large Année scolaire 2019--2020\par}
+	\vspace{3.0cm}
+	{\Large	Henrique Miyamoto\par}
+	{\texttt{\href{mailto:henriquekoji.miyamoto@supelec.fr}{henriquekoji.miyamoto@supelec.fr}}\par}
+	\vfill
+    {\large \today}
+\end{titlepage}
+
+\newpage
+\tableofcontents
+
+\newpage
+\section{Introduction}
+
+Le sommeil joue un rôle fondamental pour la santé d'un individu. Il peut être divisé dans cinq phases (\textit{stages}), à savoir : éveil, sommeil léger 1 (NREM1), sommeil léger 2 (NREM2), sommeil profond (NREM3) et sommeil paradoxal (REM). Chaque phase est associée à une fonction différente, d'où l'importance de surveiller ces phases pour diagnostiquer des troubles du sommeil \cite{kaggle}. Traditionnellement, la classification des phases du sommeil est faite manuellement par un spécialiste, à partir des données d'un examen de polysomnographie. Cependant ce travail est répétitif et soumis à des divergences entre spécialistes, ce qui motive l'étude des méthodes automatiques de classification \cite{entropy}.
+
+Le but de ce \textit{challenge} est alors de proposer et implémenter une méthode automatique pour la classification des phases du sommeil à partir des données de trois types de capteurs : sept électroencéphalogrammes (EEG), un oxymètre de pouls et un accéléromètre de trois axis. Les signaux sont divisés en fenêtres de 30 s et ont été échantillonnés à 50 Hz (EEG) ou 10 Hz (oxymètre de pouls et accéléromètre). Le jeux de données de entraînement contient 24688 donnés classifiés et le jeux de données de test contient 24980 donnés à classifier.
+
+On propose dans ce travail une approche simple, basée sur \cite{entropy, radha, hassan}, où on extrait des caractéristiques temporelles et fréquentielles de chaque signal, lesquelles on utilise comme variables explicatives dans un modèle d'apprentissage statistique de type \textit{random forest}. L'implémentation a été faite avec R (version 3.6.2). Les codes R sont disponibles sur \url{https://github.com/miyamotohk/sleep_stage_classification}.
+
+\section{Visualisation des données}
+
+D'abord, on présente une visualisation des données. Pour cela, on trace la moyenne et les bornes supérieur et inférieur de chaque signal pour chaque phase (Figures \ref{fig:vis-EEG} et \ref{fig:vis-xyzp}).
+
+\begin{figure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{EEG1_1}
+		\includegraphics[width=.45\linewidth]{EEG1_2}
+		\includegraphics[width=.45\linewidth]{EEG1_3}
+		\includegraphics[width=.45\linewidth]{EEG1_4}
+		\includegraphics[width=.45\linewidth]{EEG1_5}
+		\caption{Signal EEG1 pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{EEG2_1}
+		\includegraphics[width=.45\linewidth]{EEG2_2}
+		\includegraphics[width=.45\linewidth]{EEG2_3}
+		\includegraphics[width=.45\linewidth]{EEG2_4}
+		\includegraphics[width=.45\linewidth]{EEG2_5}
+		\caption{Signal EEG2 pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{EEG3_1}
+		\includegraphics[width=.45\linewidth]{EEG3_2}
+		\includegraphics[width=.45\linewidth]{EEG3_3}
+		\includegraphics[width=.45\linewidth]{EEG3_4}
+		\includegraphics[width=.45\linewidth]{EEG3_5}
+		\caption{Signal EEG3 pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{EEG4_1}
+		\includegraphics[width=.45\linewidth]{EEG4_2}
+		\includegraphics[width=.45\linewidth]{EEG4_3}
+		\includegraphics[width=.45\linewidth]{EEG4_4}
+		\includegraphics[width=.45\linewidth]{EEG4_5}
+		\caption{Signal EEG4 pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{EEG5_1}
+		\includegraphics[width=.45\linewidth]{EEG5_2}
+		\includegraphics[width=.45\linewidth]{EEG5_3}
+		\includegraphics[width=.45\linewidth]{EEG5_4}
+		\includegraphics[width=.45\linewidth]{EEG5_5}
+		\caption{Signal EEG5 pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{EEG6_1}
+		\includegraphics[width=.45\linewidth]{EEG6_2}
+		\includegraphics[width=.45\linewidth]{EEG6_3}
+		\includegraphics[width=.45\linewidth]{EEG6_4}
+		\includegraphics[width=.45\linewidth]{EEG6_5}
+		\caption{Signal EEG6 pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{EEG7_1}
+		\includegraphics[width=.45\linewidth]{EEG7_2}
+		\includegraphics[width=.45\linewidth]{EEG7_3}
+		\includegraphics[width=.45\linewidth]{EEG7_4}
+		\includegraphics[width=.45\linewidth]{EEG7_5}
+		\caption{Signal EEG7 pour chaque phase.}
+	\end{subfigure}
+	\caption{Visualisation des signaux EEG.}
+	\label{fig:vis-EEG}
+\end{figure}
+
+\begin{figure}[h!]
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{X_1}
+		\includegraphics[width=.45\linewidth]{X_2}
+		\includegraphics[width=.45\linewidth]{X_3}
+		\includegraphics[width=.45\linewidth]{X_4}
+		\includegraphics[width=.45\linewidth]{X_5}
+		\caption{Signal axis X pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{Y_1}
+		\includegraphics[width=.45\linewidth]{Y_2}
+		\includegraphics[width=.45\linewidth]{Y_3}
+		\includegraphics[width=.45\linewidth]{Y_4}
+		\includegraphics[width=.45\linewidth]{Y_5}
+		\caption{Signal axis Y pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{Z_1}
+		\includegraphics[width=.45\linewidth]{Z_2}
+		\includegraphics[width=.45\linewidth]{Z_3}
+		\includegraphics[width=.45\linewidth]{Z_4}
+		\includegraphics[width=.45\linewidth]{Z_5}
+		\caption{Signal axis Z pour chaque phase.}
+	\end{subfigure}
+	\begin{subfigure}{.5\textwidth}
+		\centering
+		\includegraphics[width=.45\linewidth]{pulse_1}
+		\includegraphics[width=.45\linewidth]{pulse_2}
+		\includegraphics[width=.45\linewidth]{pulse_3}
+		\includegraphics[width=.45\linewidth]{pulse_4}
+		\includegraphics[width=.45\linewidth]{pulse_5}
+		\caption{Signal oxymètre pour chaque phase.}
+	\end{subfigure}
+	\caption{Visualisation des signaux de l'accéléromètre et de l'oxymètre de pouls.}
+	\label{fig:vis-xyzp}
+\end{figure}
+
+\section{Méthodes}
+
+La principal \textit{feature} (caractéristique) utilisée dans la littérature pour distinguer les phases du sommeil sont les signaux EEG (cf. \cite[Table 13]{entropy}). Chaque signal EEG peut être décomposée en bandes de fréquence, qui portent des informations utiles pour la classification des phases du sommeil. La définition des fréquences pour chaque bande peut varier légèrement dans la littérature (voir par exemple \cite{entropy} contre \cite{radha}). Dans ce travail, on utilise les définitions comme dans la Table \ref{tab:bandes}.
+
+\begin{table}[h!]
+	\caption{Bandes de fréquence d'un signal EEG décomposé.}
+	\label{tab:bandes}
+	\begin{center}
+		\begin{tabular}{|c c|} \hline
+			\textbf{Bande} & \textbf{Fréquences (Hz)} \\ \hline\hline
+			Delta ($\delta$) & 0.5--4 \\
+			Theta ($\theta$) & 4--8 \\
+			Alpha ($\alpha$) & 8--13 \\
+			Beta ($\beta$) & 13--25 \\
+			K-complexe ($K$) & 0.9--1.1\\\hline
+		\end{tabular}
+	\end{center}
+\end{table}
+
+En plus des données EEG, on dispose aussi des signaux de l'oxymètre et de l'accéléromètre, qui sont plus rares dans la littérature.
+
+D'abord, on divise les signaux en deux groupes, à savoir : signaux EEG et signaux oxymètre et accéléromètre. Pour chaque groupe, on propose des \textit{features} de deux types : du domaine du temps et du domaine de la fréquence, comme dans la Table \ref{tab:features}.
+
+\begin{table}[h!]
+	\caption{Résumé des \textit{features} extraites.}
+	\label{tab:features}
+	\centering
+	\begin{tabular}{|c|c c|}
+		\hline
+		\textbf{Groupe}                                          & \textbf{\textit{Feature}}        & \textbf{Symbole}                                  \\ \hline\hline
+		\multirow{7}{*}{Signaux EEG}                    & \textit{Domaine du temps}        &                                          \\
+		& Moyenne                 & $\mu$                                    \\ 
+		& Variance                & $\sigma^2$                               \\ 
+		& Zero crossing rate moyen                & $Z_c$                               \\
+		& \textit{Domaine de la fréquence} &                                          \\ 
+		& Puissance spectrale relative & $\delta_r,\theta_r,\alpha_r,\beta_r,K_r$ \\
+		& Ratios de puissance & $\delta/\alpha, \theta/\alpha$ \\
+		& Pic de fréquence & $sp$ \\\hline
+		\multirow{9}{*}{Signaux oxymètre/accéléromètre} & \textit{Domaine du temps}        &                                          \\
+		& Moyenne                 & $\mu$                                  \\ 
+		& Variance                & $\sigma^2$                             \\ 
+		& Skewness                & $\gamma$                               \\
+		& Kurtosis                & $\kappa$                               \\
+		& Zero crossing rate moyen                & $Z_c$                  \\
+		& \textit{Domaine de la fréquence} &                               \\
+		& Puissance spectrale relative & $L_r, H_r$ \\
+		& Puissance spectrale totale & $P$ \\
+		& Pic de fréquence & $sp$ \\\hline
+	\end{tabular}
+\end{table}
+
+\subsection{Prétraitement des données}
+
+Pour pouvoir extraire les \textit{features} du domaine de la fréquence, il est nécessaire d'estimer le diagramme de densité spectrale de puissance (DSP), ce qui est fait avec la méthode d'estimation de Welch \cite{welch}. Cette méthode consiste à calculer la moyenne entre transformées de Fourier consécutives de petites fenêtres du signal et améliore la précision du périodogramme classique dans le cas  des signaux non-stationnaires \cite{vallat}. L'implémentation en R est fait avec la commande \texttt{pwelch}. Notons que, par défaut, le périodogramme est calculé entre zéro et la moitié de la fréquence d'échantillonnage du signal.
+
+Ensuite, pour calculer les puissances spectrales, on intègre la courbe de densité spectrale de puissance obtenue entre les fréquences souhaitées, ce qui peut être fait avec la méthode \texttt{integrate.xy}.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.4\linewidth]{signal}
+	\includegraphics[width=0.4\linewidth]{welch}
+	\caption{Exemple de signal (EEG1, échantillon 1000) et son estimation de Welch de la DSP.}
+\end{figure}
+
+\subsection{Extraction de \textit{features}}
+
+La choix des \textit{features} était basée sur \cite{radha, hassan}. Pour les signaux EEG, les \textit{features} principales sont dérivées de la puissance spectral des bandes $\delta, \theta, \alpha, \beta, K$ \cite{radha}. Pour les signaux oxymètre et accéléromètre, on propose des \textit{features} statistiques classiques \cite{hassan} et la puissance spectrale dans la zone haute et basse du spectre.
+
+\subsubsection{Domaine du temps}
+
+Pour extraire les \textit{features} du domaine du temps, considérons les signaux comme une série chronologique $\{x_1, x_2, \dots, x_N\}$.
+
+\begin{itemize}
+	\item La \textbf{moyenne} $\mu$ est calculée comme
+	$$ \mu = \frac{1}{N}\sum_{i=1}^{N}x_i. $$
+	\item La \textbf{variance} $\sigma^2$ du signal est calculée comme
+	$$ \sigma^2 = \frac{1}{N}\sum_{i=1}^{N}{(x_i - \mu)}^{2}. $$
+	\item Le \textbf{skewness} $\gamma$ est une mesure de l'asymétrie de la distribution autour de la moyenne \cite{hassan} :
+	$$ \gamma = \frac{1}{N}\sum_{i=1}^{N}{\left(\frac{x_i-\mu}{\sigma}\right)}^{3}. $$
+	\item La \textbf{kurtosis} $\kappa$ est un coefficient d’acuité de la distribution \cite{hassan} :
+	$$ \kappa = \frac{1}{N}\sum_{i=1}^{N}{\left(\frac{x_i-\mu}{\sigma}\right)}^{4}. $$
+	\item Le \textbf{zero crossing rate moyen} $Z_c$ est la moyenne du taux de changement de signe d'un signal dans fenêtres de taille $\frac{3}{2}F_s$, où $F_s$ est la fréquence d'échantillonnage \cite{radha}.
+\end{itemize}
+
+\subsubsection{Domaine de la fréquence}
+
+\begin{itemize}
+	\item Pour les signaux EEG, les \textbf{puissances spectrales relatives} $\delta_r,\theta_r,\alpha_r,\beta_r,K_r$ on été obtenues en divisant la puissance de chaque bande (voir Table \ref{tab:bandes}) par la puissance totale. Pour les signaux  oxymètre et accéléromètre, on calcule la puissance relative dans zones du spectre: basse $L_r$ (0--2.5 Hz) et haute $H_r$ (2.5--5 Hz).
+	\item La \textbf{puissance spectrale totale} $P$ est obtenue en intégrant la DSP dans tout le domaine.
+	\item Les \textbf{ratios de puissance} $\delta/\alpha$ et $\theta/\alpha$ sont obtenus en divisant les puissances relatives des bandes concernées \cite{radha}.
+	\item Le \textbf{pic de fréquence} $sp$ est la fréquence pour laquelle la DSP est maximale \cite{radha}.
+\end{itemize}
+
+\subsection{Modèle}
+
+On utilise le modèle \textit{random forest} \cite[Chapitre 15]{friedman} pour l'apprentissage statistique. Il s'agit d'une modification de la méthode \textit{bagging} qui construit une grande collection d'arbres décorrélées, présenté originalement dans \cite{breiman} et qui est devenu assez populaire, grâce à ses avantages -- notamment une bonne performance avec très peu de réglages.
+
+L'idée fondamentale du \textit{bagging} c'est de prendre la moyenne de plusieurs modèles bruités, mais approximativement non-biaisés, de sorte à réduire la variance. Ainsi, les arbres sont des candidats appropriés pour l'appliquer, car ils peuvent capturer des interactions complexes dans les données et, si assez profondes, son biais est faible. En plus, comme les modèles générés sont bruités, ils peuvent profiter de la prise de moyenne.
+
+Pour encore réduire la variance du modèle de \textit{bagging}, la méthode \textit{random forest} propose une choix aléatoire des variables d'entrée lors de la construction des arbres. Plus spécifiquement, quand on construit un arbre sur un jeux de données, avant chaque division, on choisit $m \le p$ données d'entrée au hasard comme candidats pour la division. Après $B$ tels arbres $\{ T_b(x) \}_{b=1}^{B}$ sont construits :
+
+\begin{itemize}
+	\item Pour faire de la \textit{régression}, la prédiction du \textit{random forest} est calculée comme
+	$$ \hat{f}_{B}(x) = \frac{1}{B}\sum_{b=1}^{B} T_b(x). $$
+	\item Pour faire la \textit{classification}, soit $\hat{C}_b(x)$ la classe prédite par le $b$-ème arbre. Alors, $\hat{C}_B(x)$ est le vœux majoritaire dans les $\{ \hat{C}_b \}_{b=1}^{B}$.
+\end{itemize}
+
+Dans le cas de la classification, la valeur par défaut de $m$ est $\lfloor \sqrt{p} \rfloor$ et la taille minimale d'un nœud est $n_{\min}=1$. L'Algorithme \ref{alg:rf} décrit de manière résumée la méthode \textit{random forest} pour la classification.
+
+\begin{algorithm}[h!]
+	\caption{\textit{Random forest} pour la classification \cite[p. 588]{friedman}}
+	\label{alg:rf}
+
+	\For{$b=1:B$}{
+		Prendre un échantillon \textit{bootstrap} de taille $N$ à partir des données de entraînement.\\
+		Construire un arbre $T_b$ en répétant récursivement, jusqu'à que la taille de nœud minimale est atteinte :
+		\begin{enumerate}
+			\item Séléctionner $m$ des $p$ variables au hasard.
+			\item Séléctionner la meilleure variable/point de division entre les $m$.
+			\item Diviser le nœud en deux fils.
+		\end{enumerate}
+	}
+	Retourner l'ensemble de arbres $\{ T_b \}_{b=1}^{B}$.\\
+	La classe prédite $\hat{C}_B$ est le vœux majoritaire entre les $\{ \hat{C}_b \}_{b=1}^{B}$, où $\hat{C}_b$ est la classe prédite par $T_b$.
+\end{algorithm}
+
+L'implémentation du \textit{random forest} sur R est faite avec le \textit{package} \texttt{randomForest} \cite{randomforest}. On a utilisé les paramètres suivantes :
+\begin{itemize}
+	\item Nombre d'arbres : 1000.
+	\item Nombre de variables sectionnées à chaque division : $m = 15$
+	\item Taille minimale d'un nœud : $n_{\min} = 1$ (défaut)
+\end{itemize}
+
+\subsection{Validation croisée}
+
+Pour estimer l'erreur de prédiction de la méthode \textit{random forest}, on peut utiliser l'estimation d'erreur \textit{out-of-bag} (OOB) : pour chaque observation $z_i = (x_i, y_i)$, on construit la prédiction \textit{random forest} en utilisant seulement les arbres qui correspondent à des échantillons \textit{bootstrap} dans lesquels $z_i$ \textit{n'est pas} utilisé. Ensuite, on calcule la moyenne de l'erreur de prédiction de ces modèles pour obtenir l'estimation d'erreur OOB. Notons que cette estimation est ``presque identique'' à l'estimation obtenue par validation croisée de type $N$-\textit{fold} \cite{friedman}.
+
+\section{Résultats et discussion}
+
+\subsection{Erreur de classification}
+
+La matrice de confusion du modèle générée est présenté dans Table \ref{tab:confusion}. On observe que la classification des phases du sommeil est raisonnable pour tous les phases, à l'exception de la phase 1 (NREM1), qui est la la plupart du temps mal classifiée comme phase 2 (NREM2), phase 0 (éveil) ou phase 4 (REM).
+
+\begin{table}[h!]
+	\centering
+	\caption{Matrice de confusion.}
+	\label{tab:confusion}
+	\begin{tabular}{|c||cccccc|}
+		\hline
+		& 0    & 1   & 2    & 3    & 4    & Erreur de classification \\ \hline\hline
+		0 & \textbf{2885} & 42  & 380  & 57   & 147  & 0,1782968                \\ 
+		1 & 402  & \textbf{193} & 719  & 20   & 337  & 0,8845003                \\ 
+		2 & 234  & 32  & \textbf{8303} & 380  & 500  & 0,1212827                \\ 
+		3 & 110  & 1   & 728  & \textbf{4354} & 31   & 0,1665391                \\ 
+		4 & 231  & 50  & 823  & 79   & \textbf{3650} & 0,2447755                \\ \hline
+	\end{tabular}
+\end{table}
+
+L'évolution de l'erreur de prédiction OOB est présenté dans Figure \ref{fig:erreur}. La ligne noire représente l'erreur générale et chaque couleur la classification d'une phase. Comme on avait déjà noté avec la matrice de confusion, il y a seulement une phase qui est souvent mal classifiée (en vert dans le graphe, cela doit correspondre à la phase 1/NREM1). La valeur finale de l'erreur est de 21,48\%. On observe aussi qu'il ne vaut pas la peine de trop augmenter le nombre d'arbres, car l'erreur de classification se stabilise à partir d'approximativement 100 arbres.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\linewidth]{erreur}
+	\caption{Estimation de l'erreur OOB en fonction du nombre de arbres (ligne noire: général, lignes en couleur : pour chaque phase).}
+	\label{fig:erreur}
+\end{figure}
+
+Enfin, on note que l'erreur de 21,48\% obtenu avec \textit{random forest} est plus petit que l'erreur de 25,03\% obtenu avec la méthode SVM (noyau gaussien) pour les mêmes données et que la figure de mérite du challenge est le \textit{mean F1-Score}, qui dépend de la précision $p$ et du rappel $r$ :
+$$ F_1 = 2\frac{pr}{p+r}, $$
+où $p = t_p/(t_p+f_p)$ et $r=t_p/(t_p+f_n)$, avec $t_p$ nombre de vraies positives, $f_p$ faux positives et $f_n$ faux négatives. L'estimation du \textit{F1-score} calculée par Kaggle était d'approximativement 0,68388 (calculée avec environ 70\% des données).
+
+\subsection{Importance des variables}
+
+Le package \texttt{randomForest} permet extraire aussi l'importance des variables explicatives, calculées à partir de la diminution moyenne de l'impureté des nœuds. La Table \ref{tab:imp} liste les 10 \textit{features} le plus importantes selon cette classification.
+
+\begin{table}[h!]
+	\centering
+	\caption{Les 10 \textit{features} le plus importantes.}
+	\label{tab:imp}
+	\begin{tabular}{|c | c|}
+		\hline
+		\# & \textit{Feature} \\ \hline\hline
+		1  & theta/alpha\_eeg\_4 \\
+		2  & var\_eeg\_5         \\ 
+		3  & var\_eeg\_1         \\ 
+		4  & var\_y              \\ 
+		5  & var\_x              \\ 
+		6  & delta\_eeg\_5       \\ 
+		7  & zcmean\_eeg\_5      \\ 
+		8  & var\_eeg\_6         \\ 
+		9  & kur\_z              \\ 
+		10 & theta/alpha\_eeg\_5 \\ \hline
+	\end{tabular}
+\end{table}
+
+On note 7/10 variables sont des \textit{features} liées aux signaux EEG et 3/10 sont des signaux de l'accéléromètre. On souligne l'apparition de variables statistiques (variance et kurtosis) et de variables liées à la puissance spectrale ($\theta/\alpha, \delta_r$).
+
+%\newpage
+%\appendix
+%\section{Codes R}
+
+%\lstinputlisting{Codes/visualisation.R}
+
+%\lstinputlisting{Codes/parameters.R}
+
+%\lstinputlisting{Codes/learning.R}
+
+\clearpage
+\newpage
+\begin{thebibliography}{10}
+
+\bibitem{kaggle} Kaggle. \textit{Dreem 2 Sleep Stage Classification Challenge}. Disponible sur : \url{https://www.kaggle.com/c/dreem-sleep-stages-2020/}.
+
+\bibitem{entropy} K. Aboalayon, M. Faezipour, W. Almuhammadi et S. Moslehpour. ``Sleep Stage Classification Using EEG Signal Analysis: A Comprehensive Survey and New Investigation''. \textit{Entropy}, vol. 18, no. 9, p. 272, Août 2016.
+
+\bibitem{radha} M. Radha, G. Garcia-Molina, M. Poel et G. Tononi. ``Comparison of Feature and Classifier Algorithms for Online Automatic Sleep Staging Based on a Single EEG Signal''. \textit{Proceedings of 36th Annual International Conference of the IEEE Engineering in Medicine and Biology Society}, Chicago, États-Unis, pp. 1876--1880, Août 2014.
+
+\bibitem{hassan} A.R. Hassan, S.K. Bashar et M.I.H. Bhuiyan. ``On the Classification of Sleep States by Means of Statistical and Spectral Features from Single Channel Electroencephalogram''. \textit{IEEE International Conference on Advances in Computing, Communications and Informatics (ICACCI)}, Kochi, Inde, pp. 2238--2243, Août 2015.
+
+\bibitem{welch} P. Welch. ``The Use of Fast Fourier  Transform for the Estimation of Power Spectra: A Method Based on  Time  Aver. aging Over  Short, Modified  Periodograms''. \textit{IEEE Transactions on Audio and Electroacoustics}, vol. 15, no. 2, pp. 70--73, Juin 1967.
+
+\bibitem{vallat} R. Vallat. \textit{Compute the average bandpower of an EEG signal}. Disponible sur : \url{https://raphaelvallat.com/bandpower.html}.
+
+\bibitem{friedman} T, Hastie, R. Tibshirani, J. Friedman. \textit{The Elements of Statistical Learning} : Data Mining, Inference and Prediction, 2nd edition. New York : Springer, 2017.
+
+\bibitem{breiman} L. Breiman. ``Random Forests''. \textit{Machine Learning}, vol. 45, no. 1, pp. 5--32, Octobre 2001.
+
+\bibitem{randomforest} R Documentation. \textit{randomForest v4.6-14}. Disponible sur : \url{https://www.rdocumentation.org/packages/randomForest/versions/4.6-14}.
+
+\end{thebibliography}
+
+ \end{document}
